@@ -1,0 +1,1 @@
+A simple visualisation of how neural networks work in predicting a simple digit between 0-9

@@ -1,0 +1,79 @@
+<html lang="en-US">
+<head>
+    <meta charset="UTF-8">
+    <title>Canvas</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="canvas" width="280" height="280"></canvas>
+    <br>
+    <button id="clearBtn">Clear</button>
+    <button id="predictBtn">Predict</button>
+
+    <script>
+        function draw() {
+            const canvas = document.getElementById("canvas");
+            const ctx = canvas.getContext("2d");
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            let drawing = false;
+            // Optional: make lines thicker
+            ctx.lineWidth = 8;
+            ctx.lineCap = "round";
+
+            canvas.addEventListener("mousedown", (e) => {
+                drawing = true;
+                ctx.beginPath();
+                ctx.moveTo(e.offsetX, e.offsetY);
+            });
+
+            canvas.addEventListener("mousemove", (e) => {
+                if (!drawing) return;
+
+                ctx.lineTo(e.offsetX, e.offsetY);
+                ctx.stroke();
+            });
+
+            canvas.addEventListener("mouseup", () => {
+                drawing = false;
+            });
+
+            canvas.addEventListener("mouseleave", () => {
+                drawing = false;
+            });
+
+            // Predict button
+            document.getElementById("predictBtn").addEventListener("click", () => {
+                const dataUrl = canvas.toDataURL("image/png");
+
+                console.log("Base64 Image:");
+                console.log(dataUrl);
+
+                //Send to backend
+                fetch("/predict", {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({image: dataUrl})
+                    }
+                )
+                .then(response => response.json())
+                .then(data => {
+                        console.log(data);  // for now, just log it
+                        // later: display the predicted digit on screen
+                });
+            });
+            // Clear button
+            document.getElementById("clearBtn").addEventListener("click", () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            });
+        }
+
+        draw();
+    </script>
+</body>
+</html>
