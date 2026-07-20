@@ -3,9 +3,11 @@
 from flask import Flask, jsonify, request, render_template
 from PIL import Image, ImageOps
 import base64
-from torchvision import transforms, torch
+from torchvision import transforms
+import torch
 from cnn import DigitCNN
 from io import BytesIO
+import numpy as np
 
 app = Flask(__name__)
 
@@ -17,6 +19,17 @@ def index():
 model = DigitCNN()
 model.load_state_dict(torch.load("best_model.pth", map_location="cpu"))
 model.eval()
+
+activations = {}
+
+def hook_fn_conv1(module, input, output):
+    activations['conv1'] = output.detach()
+
+def hook_fn_conv2(module, input, output):
+    activations['conv2'] = output.detach()
+
+model.conv1.register_forward_hook(hook_fn_conv1)
+model.conv2.register_forward_hook(hook_fn_conv2)
 
 @app.route("/predict", methods = ["POST"])
 def predict():
@@ -54,8 +67,19 @@ def predict():
     with torch.no_grad():
         output = model(image)
         prediction = output.argmax(dim=1).item()
+        conv1_features = []
+        conv2_features = []
+        for i in range(activations['conv1'].shape[1]):  # loop through 32 channels
+            feature_map = activations['conv1'][0, i]    # shape: (26, 26)
+            conv1_features.append(tensor_to_base64(feature_map))
+        for i in range(activations['conv2'].shape[1]):  # loop through 64 channels
+            feature_map = activations['conv2'][0, i]    # shape: (26, 26)
+            conv2_features.append(tensor_to_base64(feature_map))
     # 7. return jsonify({"prediction": digit})
-    return jsonify({"prediction": prediction})
+    return jsonify({"prediction": prediction,
+                    "conv1_features": conv1_features,
+                    "conv2_features": conv2_features
+    })
     #pass
 
 
@@ -74,6 +98,26 @@ def index():
     return "Homepage"
 """
 
+def tensor_to_base64(tensor):
+    # tensor shape is (height, width) — single feature map
+    # 1. convert to numpy
+    array = tensor.numpy()
+    # 2. normalize to 0-255 range
+    #normalized_array = transforms.Normalize(0, 255)(array)
+    diff = array.max() - array.min()
+    if diff == 0:
+        array = np.zeros_like(array, dtype='uint8')
+    else:
+        array = ((array - array.min()) / diff * 255).astype('uint8')
+    # 3. convert to PIL Image
+    image = Image.fromarray(array)
+    # 4. save to BytesIO as PNG
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    # 5. encode as base64 and return string
+    buffer.seek(0)  # rewind to start before reading
+    base64_string = base64.b64encode(buffer.read()).decode("utf-8")
+    return base64_string
 
 @app.route("/api")
 def apiRoute():

@@ -63,7 +63,11 @@
                 )
                 .then(response => response.json())
                 .then(data => {
-                        console.log(data);  // for now, just log it
+                        console.log("Prediction:", data.prediction);
+                        console.log("Conv1 features count:", data.conv1_features.length);
+                        console.log("Conv2 features count:", data.conv2_features.length);
+                        console.log("First feature map:", data.conv1_features[0].substring(0, 50));
+                        //console.log(data);  // for now, just log it
                         // later: display the predicted digit on screen
                 });
             });
